@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        .node circle {
+            fill: #fff;
+            stroke: steelblue;
+            stroke-width: 1.5px;
+        }
+        .node {
+            font: 10px sans-serif;
+        }
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1.5px;
+        }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <title>LV4-Z4</title>
+</head>
+<body>
+<script>
+    var data = {
+        "name": "flare",
+        "children": [
+            {
+                "name": "analytics",
+                "children": [
+                    {
+                        "name": "cluster",
+                        "children": [
+                            {"name": "AgglomerativeCluster", "size": 3938},
+                            {"name": "CommunityStructure", "size": 3812},
+                            {"name": "MergeEdge", "size": 743}
+                        ]
+                    },
+                    { "name": "graph",
+                        "children": [
+                            {"name": "BetweennessCentrality", "size": 3534},
+                            {"name": "LinkDistance", "size": 5731}
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    var width = 500;
+    var height = 500;
+
+    var cluster = d3.layout.cluster()
+        .size([height, width - 160]);
+
+    var diagonal = d3.svg.diagonal()
+        .projection(function(d) { return [d.y, d.x]; });
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", "translate(40,0)");
+
+    var nodes = cluster.nodes(data), links = cluster.links(nodes);
+
+    var link = svg.selectAll(".link")
+        .data(links)
+        .enter().append("path")
+        .attr("class", "link")
+        .attr("d", diagonal);
+
+    var node = svg.selectAll(".node")
+        .data(nodes)
+        .enter().append("g")
+        .attr("class", "node")
+        .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
+
+    node.append("circle")
+        .attr("r", 4.5)
+        .on("click", function(d) {
+            console.log("Clicked node:", d.name);
+            toggleChildren(d); // Call toggle function when a node is clicked
+        });
+
+    node.append("text")
+        .attr("dx", function(d) { return d.children ? -8 : 8; })
+        .attr("dy", 3)
+        .style("text-anchor", function(d) { return d.children ? "end" : "start"; })
+        .text(function(d) { return d.name; });
+
+    // Recursive function to remove children nodes and links
+    function removeChildren(d) {
+        if (d.children) {
+            d.children.forEach(function(child) {
+                // Recursively remove the child and its descendants
+                removeChildren(child); 
+
+                // Remove the node and its corresponding link
+                d3.selectAll(".node").filter(function(n) { return n === child; }).remove();
+                d3.selectAll(".link")
+                    .filter(function(l) { return l.source === child || l.target === child; })
+                    .remove();
+            });
+        }
+    }
+
+    // Recursive function to add children nodes and links back to the view
+    function addChildren(d) {
+        if (d.children) {
+            d.children.forEach(function(child) {
+                // Add node for each child
+                var newNode = svg.append("g")
+                    .attr("class", "node")
+                    .attr("transform", function() { return "translate(" + child.y + "," + child.x + ")"; });
+
+                newNode.append("circle")
+                    .attr("r", 4.5)
+                    .on("click", function() { 
+                        console.log("Clicked node:", child.name); 
+                        toggleChildren(child); // Toggle on click
+                    });
+
+                newNode.append("text")
+                    .attr("dx", function(d) { return d.children ? -8 : 8; })
+                    .attr("dy", 3)
+                    .style("text-anchor", function(d) { return d.children ? "end" : "start"; })
+                    .text(function(d) { return d.name; });
+
+                // Add link
+                svg.append("path")
+                    .attr("class", "link")
+                    .attr("d", diagonal({source: d, target: child}));
+            });
+        }
+    }
+
+    // Toggle function to hide or show children
+    function toggleChildren(d) {
+        // Check if node has children to toggle
+        if (d.children && d.children.length > 0) {
+            if (d._children) {
+                // If children are hidden (stored in _children), restore them
+                d.children = d._children;
+                d._children = null;
+                addChildren(d); // Add children back to the view
+            } else {
+                // If children are visible, store them in _children and remove them
+                d._children = d.children;
+                d.children = null;
+                removeChildren(d); // Remove children from the view
+            }
+        }
+    }
+</script>
+</body>
+</html>
